@@ -115,6 +115,71 @@ Run the full suite of unit tests:
 
 ---
 
+## Building & Packaging as an App
+
+Choose the build method best suited for your distribution or packaging workflow:
+
+### Option 1: Standalone Linux Executable Directory (PyInstaller)
+Bundles Python, PyQt6, NumPy, SymPy, pyqtgraph, and all dependencies into a portable directory that runs on any modern 64-bit Linux distribution without needing Python installed:
+
+```bash
+./build_app.sh
+```
+- **Output Executable**: `dist/calculator-suite/calculator-suite`
+- **To Launch**: `./dist/calculator-suite/calculator-suite`
+- You can zip or distribute this `dist/calculator-suite` folder to any other Linux machine.
+
+---
+
+### Option 2: Native Arch / Garuda Linux Package (`.pkg.tar.zst`)
+Builds a native package managed by `pacman`. Packages the self-contained app into `/usr/lib/calculator-suite`, symlinks `/usr/bin/calculator-app`, and installs standard KDE Plasma desktop entries and icons:
+
+```bash
+# 1. Build the package
+makepkg -f
+
+# 2. Install system-wide with pacman
+sudo pacman -U calculator-app-1.0.0-1-x86_64.pkg.tar.zst
+```
+
+> [!TIP]
+> **Can you delete the source folder after Step 2?**
+> **Yes, absolutely!** Once installed via `sudo pacman -U`, all binary executables, libraries, desktop launchers, and icons are placed directly into `/usr/lib/`, `/usr/bin/`, and `/usr/share/`. The app has zero dependence on this repository folder. You can safely delete the folder, and the calculator will continue to launch from your KDE Application Menu or via `calculator-app` in any terminal. To remove it later, run `sudo pacman -R calculator-app`.
+
+---
+
+### Option 3: Universal Portable AppImage (Single File)
+Package the application into a single double-clickable `.AppImage` file for Ubuntu, Debian, Fedora, Arch, and openSUSE:
+
+```bash
+# 1. Build the standalone app
+./build_app.sh
+
+# 2. Package with appimagetool
+wget -O appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+chmod +x appimagetool
+./appimagetool dist/calculator-suite Calculator-Suite.AppImage
+```
+
+---
+
+### Option 4: Standard Python Package CLI Tool (`pipx` / `pip`)
+Because `pyproject.toml` is configured, you can install the app directly into your user environment:
+
+```bash
+# Install with pipx (recommended for isolated CLI tools):
+pipx install .
+
+# Or with pip in editable mode:
+pip install -e .
+```
+This registers the global command:
+```bash
+casio-desmos-calc
+```
+
+---
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
@@ -131,4 +196,5 @@ Run the full suite of unit tests:
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Apache License 2.0](LICENSE).
+

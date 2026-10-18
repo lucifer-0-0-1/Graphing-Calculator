@@ -2,25 +2,29 @@
 pkgname=calculator-app
 pkgver=1.0.0
 pkgrel=1
-pkgdesc="Modern PyQt6 Calculator application for Garuda Linux"
-arch=('any')
-license=('MIT')
-depends=('python' 'python-pyqt6')
+pkgdesc="Casio fx-991CW and Desmos Graphing Calculator Suite"
+arch=('x86_64')
+license=('Apache-2.0')
+options=(!strip !debug)
 source=()
 
+build() {
+    cd "$startdir"
+    if [ ! -f "dist/calculator-suite/calculator-suite" ]; then
+        ./build_app.sh
+    fi
+}
+
 package() {
-    # 1. Install application source and assets
-    install -dm755 "${pkgdir}/usr/share/calculator-app"
-    cp -r "${startdir}/src" "${pkgdir}/usr/share/calculator-app/"
-    cp -r "${startdir}/assets" "${pkgdir}/usr/share/calculator-app/"
+    # 1. Install standalone application bundle to /usr/lib/calculator-suite
+    install -dm755 "${pkgdir}/usr/lib/calculator-suite"
+    cp -r "${startdir}/dist/calculator-suite/"* "${pkgdir}/usr/lib/calculator-suite/"
 
-    # Remove pycache files to ensure clean reproducible package
-    find "${pkgdir}/usr/share/calculator-app" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    # 2. Symlink launcher binary to /usr/bin/calculator-app
+    install -dm755 "${pkgdir}/usr/bin"
+    ln -sf /usr/lib/calculator-suite/calculator-suite "${pkgdir}/usr/bin/calculator-app"
 
-    # 2. Install launcher binary
-    install -Dm755 "${startdir}/calculator-app.sh" "${pkgdir}/usr/bin/calculator-app"
-
-    # 3. Install desktop entry
+    # 3. Install desktop launcher
     install -Dm644 "${startdir}/calculator-app.desktop" "${pkgdir}/usr/share/applications/calculator-app.desktop"
 
     # 4. Install scalable vector icon
