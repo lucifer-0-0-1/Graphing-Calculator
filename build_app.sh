@@ -19,8 +19,6 @@ echo "=========================================================="
     --onedir \
     --add-data "${SCRIPT_DIR}/assets:assets" \
     --icon "${SCRIPT_DIR}/assets/calculator-app.svg" \
-    --collect-all manim \
-    --collect-all manimpango \
     --clean \
     --noconfirm \
     "${SCRIPT_DIR}/src/main.py"

@@ -6,7 +6,6 @@ pkgdesc="Casio fx-991CW and Desmos Graphing Calculator Suite"
 arch=('x86_64')
 license=('Apache-2.0')
 options=(!strip !debug)
-optdepends=('ffmpeg: for rendering 3Blue1Brown-style Manim animations')
 source=()
 
 build() {

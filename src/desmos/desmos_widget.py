@@ -1,6 +1,6 @@
-"""Desmos-style Graphing Panel with multi-function input, sliders, and analysis."""
+"""Desmos-style Interactive Graphing Panel with multi-function input, dynamic parameter sliders, and analysis."""
 import uuid
-from typing import Dict, Any, Callable
+import numpy as np
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -15,12 +15,252 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QMenu,
     QMessageBox,
+    QDoubleSpinBox,
+    QDialog,
+    QFormLayout,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QAction, QKeySequence, QShortcut
 
 from src.desmos.graph_canvas import DesmosGraphCanvas
 from src.desmos.analysis import CurveAnalyzer
+
+
+class AddParameterDialog(QDialog):
+    """Dialog to create a new dynamic mathematical parameter slider."""
+
+    def __init__(self, existing_params: set[str], parent=None):
+        super().__init__(parent)
+        self.existing_params = existing_params
+        self.setWindowTitle("Add Dynamic Parameter Slider")
+        self.setMinimumWidth(320)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #1e1e2e;
+                color: #cdd6f4;
+            }
+            QLabel {
+                color: #cdd6f4;
+                font-family: monospace;
+                font-size: 12px;
+            }
+            QLineEdit, QDoubleSpinBox {
+                background-color: #181825;
+                color: #cdd6f4;
+                border: 1px solid #45475a;
+                border-radius: 6px;
+                padding: 6px;
+                font-family: monospace;
+            }
+            QLineEdit:focus, QDoubleSpinBox:focus {
+                border: 1px solid #89b4fa;
+            }
+            QPushButton {
+                background-color: #89b4fa;
+                color: #11111b;
+                font-weight: bold;
+                border-radius: 6px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #b4befe;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+
+        header = QLabel("CREATE DYNAMIC PARAMETER")
+        header.setStyleSheet("color: #89b4fa; font-weight: bold; font-size: 13px;")
+        layout.addWidget(header)
+
+        form = QFormLayout()
+
+        # Suggest next unused letter
+        candidates = ["c", "d", "k", "m", "n", "w", "p", "q", "v", "t", "r", "s", "z"]
+        suggested = next((ch for ch in candidates if ch not in self.existing_params), "k")
+
+        self.name_edit = QLineEdit(suggested)
+        self.name_edit.setPlaceholderText("Parameter variable name (e.g. c, k, m)")
+        form.addRow("Variable Name:", self.name_edit)
+
+        self.val_spin = QDoubleSpinBox()
+        self.val_spin.setRange(-1000.0, 1000.0)
+        self.val_spin.setValue(1.0)
+        self.val_spin.setDecimals(2)
+        form.addRow("Initial Value:", self.val_spin)
+
+        self.min_spin = QDoubleSpinBox()
+        self.min_spin.setRange(-10000.0, 10000.0)
+        self.min_spin.setValue(-10.0)
+        self.min_spin.setDecimals(1)
+        form.addRow("Minimum Bound:", self.min_spin)
+
+        self.max_spin = QDoubleSpinBox()
+        self.max_spin.setRange(-10000.0, 10000.0)
+        self.max_spin.setValue(10.0)
+        self.max_spin.setDecimals(1)
+        form.addRow("Maximum Bound:", self.max_spin)
+
+        layout.addLayout(form)
+
+        btn_row = QHBoxLayout()
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setStyleSheet("background-color: #313244; color: #cdd6f4;")
+        cancel_btn.clicked.connect(self.reject)
+        btn_row.addWidget(cancel_btn)
+
+        add_btn = QPushButton("Create Slider")
+        add_btn.clicked.connect(self._validate_and_accept)
+        btn_row.addWidget(add_btn)
+
+        layout.addLayout(btn_row)
+
+    def _validate_and_accept(self):
+        name = self.name_edit.text().strip()
+        reserved = {
+            "x", "y", "sin", "cos", "tan", "asin", "acos", "atan",
+            "sinh", "cosh", "tanh", "sqrt", "cbrt", "exp", "ln",
+            "log", "log2", "abs", "floor", "ceil", "pi", "e"
+        }
+        if not name or not name.isidentifier():
+            QMessageBox.warning(self, "Invalid Name", "Parameter name must be a valid identifier (e.g., c, k, m, omega).")
+            return
+        if name in reserved:
+            QMessageBox.warning(self, "Reserved Name", f"'{name}' is a reserved function or variable in the engine.")
+            return
+        if name in self.existing_params:
+            QMessageBox.warning(self, "Duplicate Parameter", f"Parameter '{name}' already exists.")
+            return
+        if self.min_spin.value() >= self.max_spin.value():
+            QMessageBox.warning(self, "Invalid Bounds", "Minimum bound must be strictly less than maximum bound.")
+            return
+
+        self.accept()
+
+    def get_data(self) -> tuple[str, float, float, float]:
+        return (
+            self.name_edit.text().strip(),
+            self.val_spin.value(),
+            self.min_spin.value(),
+            self.max_spin.value(),
+        )
+
+
+class ParameterSliderRow(QFrame):
+    """Interactive slider widget for a single dynamic mathematical parameter."""
+
+    value_changed = pyqtSignal(str, float)  # param_name, new_val
+    deleted = pyqtSignal(str)               # param_name
+
+    def __init__(self, name: str, value: float, min_val: float, max_val: float, color_hex: str, parent=None):
+        super().__init__(parent)
+        self.name = name
+        self.min_val = min_val
+        self.max_val = max_val
+        self.color_hex = color_hex
+        self.ticks = 200
+
+        self.setObjectName("ParamRow")
+        self.setStyleSheet("""
+            QFrame#ParamRow {
+                background-color: #181825;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                padding: 4px;
+                margin-bottom: 2px;
+            }
+        """)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(6, 4, 6, 4)
+        layout.setSpacing(6)
+
+        # Name label
+        lbl = QLabel(f"<b>{name}</b> =")
+        lbl.setStyleSheet(f"color: {color_hex}; font-family: monospace; font-size: 13px; font-weight: bold; min-width: 32px;")
+        layout.addWidget(lbl)
+
+        # Double spinbox for exact numerical value
+        self.spin = QDoubleSpinBox()
+        self.spin.setRange(min_val, max_val)
+        self.spin.setDecimals(2)
+        self.spin.setSingleStep(0.1)
+        self.spin.setValue(value)
+        self.spin.setFixedWidth(72)
+        self.spin.setStyleSheet("""
+            QDoubleSpinBox {
+                background-color: #11111b;
+                color: #cdd6f4;
+                border: 1px solid #45475a;
+                border-radius: 4px;
+                padding: 2px;
+                font-family: monospace;
+                font-size: 11px;
+            }
+        """)
+        layout.addWidget(self.spin)
+
+        # Horizontal slider
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setRange(0, self.ticks)
+        self._set_slider_from_val(value)
+        layout.addWidget(self.slider)
+
+        # Delete button
+        del_btn = QPushButton("✕")
+        del_btn.setToolTip(f"Remove parameter '{name}'")
+        del_btn.setFixedSize(20, 20)
+        del_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #f38ba8;
+                border: none;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #313244;
+                border-radius: 10px;
+            }
+        """)
+        del_btn.clicked.connect(lambda: self.deleted.emit(self.name))
+        layout.addWidget(del_btn)
+
+        # Synchronization
+        self.slider.valueChanged.connect(self._on_slider_changed)
+        self.spin.valueChanged.connect(self._on_spin_changed)
+
+    def _val_to_tick(self, val: float) -> int:
+        if self.max_val == self.min_val:
+            return 0
+        ratio = (val - self.min_val) / (self.max_val - self.min_val)
+        ratio = max(0.0, min(1.0, ratio))
+        return int(round(ratio * self.ticks))
+
+    def _tick_to_val(self, tick: int) -> float:
+        ratio = tick / float(self.ticks)
+        return self.min_val + ratio * (self.max_val - self.min_val)
+
+    def _set_slider_from_val(self, val: float):
+        self.slider.blockSignals(True)
+        self.slider.setValue(self._val_to_tick(val))
+        self.slider.blockSignals(False)
+
+    def _on_slider_changed(self, tick: int):
+        val = round(self._tick_to_val(tick), 2)
+        self.spin.blockSignals(True)
+        self.spin.setValue(val)
+        self.spin.blockSignals(False)
+        self.value_changed.emit(self.name, val)
+
+    def _on_spin_changed(self, val: float):
+        self._set_slider_from_val(val)
+        self.value_changed.emit(self.name, val)
+
+    @property
+    def value(self) -> float:
+        return self.spin.value()
 
 
 class FunctionRow(QFrame):
@@ -117,16 +357,29 @@ class FunctionRow(QFrame):
 
 
 class DesmosWidget(QWidget):
-    """Complete Desmos graphing environment with function manager and analysis."""
+    """Complete Desmos graphing environment with function manager, dynamic sliders, and analysis."""
 
-    request_manim_export = pyqtSignal(list)  # Emits list of active (expr_str, color)
+    PARAM_PALETTE = [
+        "#00d2ff",  # Neon Cyan
+        "#ff007f",  # Neon Pink
+        "#39ff14",  # Neon Lime
+        "#ffea00",  # Bright Yellow
+        "#bb9af7",  # Soft Violet
+        "#ff9e64",  # Neon Orange
+        "#2ac3de",  # Sky Blue
+    ]
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.functions: dict[str, FunctionRow] = {}
-        self.slider_params: dict[str, float] = {"a": 1.0, "b": 1.0}
+        self.slider_params: dict[str, float] = {}
+        self.param_rows: dict[str, ParameterSliderRow] = {}
 
         self._init_ui()
+
+        # Add initial dynamic parameter sliders (a and b)
+        self.add_parameter("a", 1.0, -10.0, 10.0)
+        self.add_parameter("b", 1.0, 0.1, 10.0)
 
         # Add initial starter functions
         self.add_function("sin(x)")
@@ -145,7 +398,7 @@ class DesmosWidget(QWidget):
             }
         """)
 
-        # Left Panel: Expression list and tools
+        # Left Panel: Expression list, dynamic sliders, and analysis
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(4, 4, 4, 4)
@@ -180,7 +433,7 @@ class DesmosWidget(QWidget):
         header_layout.addWidget(presets_btn)
 
         add_btn = QPushButton("+ Add")
-        add_btn.setToolTip("Add new expression row")
+        add_btn.setToolTip("Add new expression row (Shortcut: Ctrl+N)")
         add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #89b4fa;
@@ -211,39 +464,46 @@ class DesmosWidget(QWidget):
         scroll_area.setWidget(self.func_container)
         left_layout.addWidget(scroll_area, stretch=3)
 
-        # Parameter Sliders Section (a and b)
+        # Dynamic Parameter Sliders Section
         slider_frame = QFrame()
         slider_frame.setStyleSheet("background-color: #1e1e2e; border: 1px solid #313244; border-radius: 8px; padding: 6px;")
         slider_layout = QVBoxLayout(slider_frame)
         slider_layout.setContentsMargins(8, 6, 8, 6)
+        slider_layout.setSpacing(6)
 
+        sl_header = QHBoxLayout()
         sl_title = QLabel("DYNAMIC PARAMETER SLIDERS")
         sl_title.setStyleSheet("color: #a6adc8; font-size: 11px; font-weight: bold; font-family: monospace;")
-        slider_layout.addWidget(sl_title)
+        sl_header.addWidget(sl_title)
 
-        # Slider a
-        a_row = QHBoxLayout()
-        self.a_label = QLabel("a = 1.0")
-        self.a_label.setStyleSheet("color: #00d2ff; font-weight: bold; font-family: monospace;")
-        self.slider_a = QSlider(Qt.Orientation.Horizontal)
-        self.slider_a.setRange(-50, 50)
-        self.slider_a.setValue(10)
-        self.slider_a.valueChanged.connect(self._on_slider_changed)
-        a_row.addWidget(self.a_label)
-        a_row.addWidget(self.slider_a)
-        slider_layout.addLayout(a_row)
+        sl_header.addStretch()
 
-        # Slider b
-        b_row = QHBoxLayout()
-        self.b_label = QLabel("b = 1.0")
-        self.b_label.setStyleSheet("color: #ff007f; font-weight: bold; font-family: monospace;")
-        self.slider_b = QSlider(Qt.Orientation.Horizontal)
-        self.slider_b.setRange(1, 50)
-        self.slider_b.setValue(10)
-        self.slider_b.valueChanged.connect(self._on_slider_changed)
-        b_row.addWidget(self.b_label)
-        b_row.addWidget(self.slider_b)
-        slider_layout.addLayout(b_row)
+        add_param_btn = QPushButton("+ Add Slider")
+        add_param_btn.setToolTip("Create a new dynamic mathematical parameter (Shortcut: Ctrl+P)")
+        add_param_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #89b4fa;
+                color: #11111b;
+                font-weight: bold;
+                border: none;
+                border-radius: 5px;
+                padding: 3px 8px;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #b4befe;
+            }
+        """)
+        add_param_btn.clicked.connect(self._prompt_add_parameter)
+        sl_header.addWidget(add_param_btn)
+        slider_layout.addLayout(sl_header)
+
+        # Container for parameter slider rows
+        self.params_container = QWidget()
+        self.params_layout = QVBoxLayout(self.params_container)
+        self.params_layout.setContentsMargins(0, 0, 0, 0)
+        self.params_layout.setSpacing(4)
+        slider_layout.addWidget(self.params_container)
 
         left_layout.addWidget(slider_frame)
 
@@ -291,25 +551,10 @@ class DesmosWidget(QWidget):
         top_bar.addStretch()
 
         reset_btn = QPushButton("⟲ Reset View")
+        reset_btn.setToolTip("Reset canvas zoom and pan to [-10, 10] (Shortcut: Ctrl+R)")
         reset_btn.setStyleSheet("background-color: #313244; color: #cdd6f4; border-radius: 6px; padding: 4px 10px;")
         reset_btn.clicked.connect(self.canvas_reset)
         top_bar.addWidget(reset_btn)
-
-        manim_btn = QPushButton("🎬 Animate in Manim")
-        manim_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #fab387;
-                color: #11111b;
-                font-weight: bold;
-                border-radius: 6px;
-                padding: 4px 12px;
-            }
-            QPushButton:hover {
-                background-color: #f9e2af;
-            }
-        """)
-        manim_btn.clicked.connect(self._trigger_manim_export)
-        top_bar.addWidget(manim_btn)
 
         right_layout.addLayout(top_bar)
 
@@ -328,7 +573,7 @@ class DesmosWidget(QWidget):
         # Desmos Keyboard Navigation Shortcuts
         QShortcut(QKeySequence("Ctrl+N"), self).activated.connect(lambda: self.add_function(""))
         QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self.canvas_reset)
-        QShortcut(QKeySequence("Ctrl+M"), self).activated.connect(self._trigger_manim_export)
+        QShortcut(QKeySequence("Ctrl+P"), self).activated.connect(self._prompt_add_parameter)
 
     def focus_first_input(self):
         """Focus the first expression row input."""
@@ -394,14 +639,48 @@ class DesmosWidget(QWidget):
             row.deleteLater()
             self.canvas.remove_function(func_id)
 
-    def _on_slider_changed(self):
-        """Handle dynamic parameter slider changes."""
-        val_a = self.slider_a.value() / 10.0
-        val_b = self.slider_b.value() / 10.0
-        self.slider_params["a"] = val_a
-        self.slider_params["b"] = val_b
-        self.a_label.setText(f"a = {val_a:.1f}")
-        self.b_label.setText(f"b = {val_b:.1f}")
+    # -------------------------------------------------------------
+    # Dynamic Parameter Slider Management
+    # -------------------------------------------------------------
+    def add_parameter(self, name: str, value: float = 1.0, min_val: float = -10.0, max_val: float = 10.0):
+        """Add a dynamic parameter slider to the UI and canvas environment."""
+        if name in self.param_rows:
+            return
+
+        color_idx = len(self.param_rows) % len(self.PARAM_PALETTE)
+        color = self.PARAM_PALETTE[color_idx]
+
+        row = ParameterSliderRow(name, value, min_val, max_val, color, self.params_container)
+        row.value_changed.connect(self._on_param_changed)
+        row.deleted.connect(self.remove_parameter)
+
+        self.param_rows[name] = row
+        self.slider_params[name] = value
+        self.params_layout.addWidget(row)
+        self.update_all_functions()
+
+    def remove_parameter(self, name: str):
+        """Remove a dynamic parameter slider."""
+        if name in self.param_rows:
+            row = self.param_rows.pop(name)
+            self.params_layout.removeWidget(row)
+            row.deleteLater()
+
+        if name in self.slider_params:
+            del self.slider_params[name]
+
+        self.update_all_functions()
+
+    def _prompt_add_parameter(self):
+        """Display dialog to create a custom dynamic parameter slider."""
+        dlg = AddParameterDialog(set(self.slider_params.keys()), self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            name, val, min_v, max_v = dlg.get_data()
+            self.add_parameter(name, val, min_v, max_v)
+
+    def _on_param_changed(self, name: str, val: float):
+        """Update parameter value and re-evaluate curves dynamically."""
+        self.slider_params[name] = val
         self.update_all_functions()
 
     def _on_mouse_moved(self, x: float, y: float):
@@ -451,14 +730,6 @@ class DesmosWidget(QWidget):
         else:
             self.canvas.set_markers([])
             self.analysis_label.setText(f"No extrema found for {active_row.expression} in [{xmin:.1f}, {xmax:.1f}].")
-
-    def _trigger_manim_export(self):
-        """Collect visible mathematical expressions and trigger Manim Studio."""
-        items = [(r.expression, r.color_hex) for r in self.functions.values() if r.is_visible and r.expression]
-        if not items:
-            QMessageBox.information(self, "No Functions", "Please add at least one visible function curve to animate in Manim.")
-            return
-        self.request_manim_export.emit(items)
 
     def _open_presets_menu(self, btn: QPushButton):
         """Display categorized library of standard mathematical functions."""
@@ -525,4 +796,3 @@ class DesmosWidget(QWidget):
                 sub.addAction(act)
 
         menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
-

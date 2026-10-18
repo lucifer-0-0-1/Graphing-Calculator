@@ -1,4 +1,4 @@
-"""Main Application Entry Point: Casio fx-991CW + Desmos Graphing + Manim Studio."""
+"""Main Application Entry Point: Casio fx-991CW + Desmos Graphing Suite."""
 import sys
 from pathlib import Path
 from PyQt6.QtWidgets import (
@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QTabWidget,
-    QMessageBox,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon, QKeySequence, QShortcut
@@ -15,7 +14,6 @@ from PyQt6.QtGui import QIcon, QKeySequence, QShortcut
 from src.styles import MAIN_THEME
 from src.casio.casio_widget import CasioWidget
 from src.desmos.desmos_widget import DesmosWidget
-from src.manim_studio.manim_exporter import ManimStudioDialog
 
 
 class AdvancedCalculatorApp(QMainWindow):
@@ -62,7 +60,6 @@ class AdvancedCalculatorApp(QMainWindow):
 
         # Mode 2: Desmos Graphing Calculator
         self.desmos_tab = DesmosWidget(self)
-        self.desmos_tab.request_manim_export.connect(self._open_manim_studio)
         self.tabs.addTab(self.desmos_tab, "📈 Desmos (Graphing & Sliders)")
 
         self.tabs.currentChanged.connect(self._on_tab_changed)
@@ -93,11 +90,6 @@ class AdvancedCalculatorApp(QMainWindow):
             self.showNormal()
         else:
             self.showFullScreen()
-
-    def _open_manim_studio(self, functions: list):
-        """Open the Manim Animation Studio dialog with the active curves."""
-        dlg = ManimStudioDialog(functions, self)
-        dlg.exec()
 
 
 def main():
