@@ -140,11 +140,6 @@ makepkg -f
 
 # 2. Install system-wide with pacman
 sudo pacman -U calculator-app-1.0.0-1-x86_64.pkg.tar.zst
-```
-
-> [!TIP]
-> **Can you delete the source folder after Step 2?**
-> **Yes, absolutely!** Once installed via `sudo pacman -U`, all binary executables, libraries, desktop launchers, and icons are placed directly into `/usr/lib/`, `/usr/bin/`, and `/usr/share/`. The app has zero dependence on this repository folder. You can safely delete the folder, and the calculator will continue to launch from your KDE Application Menu or via `calculator-app` in any terminal. To remove it later, run `sudo pacman -R calculator-app`.
 
 ---
 
