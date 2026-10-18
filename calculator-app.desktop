@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Calculator
+Comment=Modern PyQt6 Calculator for Garuda Linux
+Exec=/usr/bin/calculator-app
+Icon=calculator-app
+Terminal=false
+Type=Application
+Categories=Utility;Calculator;Qt;
+StartupNotify=true
+StartupWMClass=GarudaCalculator
+Keywords=calculation;math;arithmetic;scientific;

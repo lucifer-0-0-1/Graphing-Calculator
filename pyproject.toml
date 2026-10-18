@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "casio-desmos-calculator"
+version = "1.0.0"
+description = "Advanced offline scientific and graphing calculator combining Casio fx-991CW ClassWiz, Desmos 60fps interactive plotting, and Manim animation studio."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Lucifer" }
+]
+keywords = [
+    "calculator",
+    "casio",
+    "fx-991cw",
+    "desmos",
+    "graphing",
+    "scientific-calculator",
+    "manim",
+    "sympy",
+    "pyqt6",
+    "pyqtgraph",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "PyQt6>=6.6.0",
+    "pyqtgraph>=0.13.0",
+    "numpy>=1.24.0",
+    "sympy>=1.12.0",
+    "scipy>=1.11.0",
+    "matplotlib>=3.8.0",
+    "manim>=0.18.0",
+]
+
+[project.scripts]
+casio-desmos-calc = "src.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
