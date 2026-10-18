@@ -1,4 +1,4 @@
-"""Manim Math Animation Studio & Code Generator."""
+"""Manim Math Animation Studio & Code Generator (LaTeX-Free Offline Rendering)."""
 import os
 import subprocess
 import tempfile
@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
     QTextEdit,
     QPushButton,
     QLabel,
-    QProgressBar,
     QFileDialog,
     QMessageBox,
 )
@@ -73,7 +72,7 @@ class ManimStudioDialog(QDialog):
     def __init__(self, functions: list[tuple[str, str]], parent=None):
         super().__init__(parent)
         self.functions = functions  # List of (expr_str, hex_color)
-        self.setWindowTitle("Manim Mathematical Animation Studio")
+        self.setWindowTitle("Manim Mathematical Animation Studio (Offline)")
         self.resize(720, 600)
         self.setStyleSheet("""
             QDialog {
@@ -107,11 +106,11 @@ class ManimStudioDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
-        header = QLabel("MANIM SCENE GENERATOR (3Blue1Brown Animation)")
+        header = QLabel("MANIM SCENE GENERATOR (3Blue1Brown Offline Animation)")
         header.setStyleSheet("color: #fab387; font-weight: bold; font-size: 14px;")
         layout.addWidget(header)
 
-        info = QLabel("Export and render buttery 60 FPS mathematical animations of your plotted functions.")
+        info = QLabel("Export and render smooth mathematical animations of your plotted functions without LaTeX.")
         info.setStyleSheet("color: #a6adc8; font-size: 11px;")
         layout.addWidget(info)
 
@@ -144,9 +143,9 @@ class ManimStudioDialog(QDialog):
         self.worker: ManimRenderWorker = None
 
     def _generate_manim_script(self) -> str:
-        """Generate standalone Manim Community Python script."""
+        """Generate standalone Manim Community Python script without LaTeX dependency."""
         curve_defs = []
-        plot_calls = []
+        play_items = ["Create(axes)"]
 
         color_map = {
             "#00d2ff": "TEAL_A",
@@ -160,26 +159,30 @@ class ManimStudioDialog(QDialog):
 
         for i, (expr, hex_color) in enumerate(self.functions):
             # Python lambda conversion
-            clean_expr = expr.replace("^", "**").replace("sin", "np.sin").replace("cos", "np.cos")
+            clean_expr = expr.replace("^", "**").replace("×", "*").replace("÷", "/")
+            clean_expr = clean_expr.replace("sin", "np.sin").replace("cos", "np.cos")
             clean_expr = clean_expr.replace("tan", "np.tan").replace("sqrt", "np.sqrt").replace("exp", "np.exp")
-            clean_expr = clean_expr.replace("ln", "np.log")
+            clean_expr = clean_expr.replace("ln", "np.log").replace("abs", "np.abs")
 
-            color_name = color_map.get(hex_color.lower(), "BLUE")
+            color_name = color_map.get(hex_color.lower(), "BLUE_B")
             fn_name = f"graph_{i+1}"
+            lbl_name = f"label_{i+1}"
+
             curve_defs.append(f"""
-        # Function {i+1}: f(x) = {expr}
+        # Curve {i+1}: f(x) = {expr}
         {fn_name} = axes.plot(
             lambda x: {clean_expr},
             color={color_name},
             x_range=[-7, 7],
             use_smoothing=True
         )
-        label_{i+1} = axes.get_graph_label({fn_name}, label="f_{{{i+1}}}(x) = {expr}")
+        {lbl_name} = Text("f_{i+1}(x) = {expr}", font_size=18, color={color_name}).next_to({fn_name}, UP, buff=0.2)
             """)
-            plot_calls.append(f"Create({fn_name}), Write(label_{i+1})")
+            play_items.append(f"Create({fn_name})")
+            play_items.append(f"Write({lbl_name})")
 
         plots_block = "\n".join(curve_defs)
-        play_block = ", ".join(plot_calls) if plot_calls else "Wait()"
+        play_block = ", ".join(play_items)
 
         script = f'''"""Generated 3Blue1Brown-style Math Animation Scene using Manim."""
 from manim import *
@@ -187,7 +190,7 @@ import numpy as np
 
 class GraphAnimationScene(Scene):
     def construct(self):
-        # 1. Setup Cartesian Axes
+        # 1. Setup Cartesian Axes (Using Text labels for 100% offline rendering without LaTeX)
         axes = Axes(
             x_range=[-8, 8, 2],
             y_range=[-5, 5, 1],
@@ -195,16 +198,16 @@ class GraphAnimationScene(Scene):
             y_length=6,
             axis_config={{"color": GREY_A, "stroke_width": 2}},
             tips=True,
-        ).add_coordinates()
+        )
+        # Use Text instead of LaTeX to avoid external compiler dependency
+        axes.add_coordinates(label_constructor=Text, font_size=16)
 
-        title = Text("Desmos & Casio Graph Visualization", font_size=28, color=BLUE_B).to_edge(UP)
+        title = Text("Desmos & Casio Graph Visualization", font_size=26, color=BLUE_B).to_edge(UP)
 
         self.play(Write(title))
-        self.play(Create(axes), run_time=1.5)
-
 {plots_block}
 
-        # 2. Animate curves drawing across the plane
+        # 2. Animate coordinate axes and mathematical curves
         self.play({play_block}, run_time=3.0)
         self.wait(2)
 '''
@@ -239,6 +242,6 @@ class GraphAnimationScene(Scene):
         self.render_btn.setEnabled(True)
         self.render_btn.setText("🎬 Render Animation (MP4)")
         if success:
-            QMessageBox.information(self, "Render Complete", f"{message}\n\nMedia generated in temp directory:\n{self.worker.output_dir}")
+            QMessageBox.information(self, "Render Complete", f"{message}\n\nMedia generated in directory:\n{self.worker.output_dir}")
         else:
             QMessageBox.warning(self, "Render Issue", message)

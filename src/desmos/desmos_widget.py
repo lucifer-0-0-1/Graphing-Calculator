@@ -13,10 +13,11 @@ from PyQt6.QtWidgets import (
     QFrame,
     QSlider,
     QCheckBox,
+    QMenu,
     QMessageBox,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QAction
 
 from src.desmos.graph_canvas import DesmosGraphCanvas
 from src.desmos.analysis import CurveAnalyzer
@@ -148,13 +149,36 @@ class DesmosWidget(QWidget):
         left_layout.setContentsMargins(4, 4, 4, 4)
         left_layout.setSpacing(8)
 
-        # Title bar & Add button
+        # Title bar & Actions
         header_layout = QHBoxLayout()
         title = QLabel("FUNCTIONS")
         title.setStyleSheet("color: #89b4fa; font-weight: bold; font-size: 13px; font-family: monospace;")
         header_layout.addWidget(title)
 
-        add_btn = QPushButton("+ Add Expression")
+        header_layout.addStretch()
+
+        presets_btn = QPushButton("📚 Common Functions")
+        presets_btn.setToolTip("Browse and insert standard mathematical functions")
+        presets_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #313244;
+                color: #f9e2af;
+                font-weight: bold;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #45475a;
+                color: #ffffff;
+            }
+        """)
+        presets_btn.clicked.connect(lambda: self._open_presets_menu(presets_btn))
+        header_layout.addWidget(presets_btn)
+
+        add_btn = QPushButton("+ Add")
+        add_btn.setToolTip("Add new expression row")
         add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #89b4fa;
@@ -163,6 +187,7 @@ class DesmosWidget(QWidget):
                 border: none;
                 border-radius: 6px;
                 padding: 6px 12px;
+                font-size: 12px;
             }
             QPushButton:hover {
                 background-color: #b4befe;
@@ -404,3 +429,70 @@ class DesmosWidget(QWidget):
             QMessageBox.information(self, "No Functions", "Please add at least one visible function curve to animate in Manim.")
             return
         self.request_manim_export.emit(items)
+
+    def _open_presets_menu(self, btn: QPushButton):
+        """Display categorized library of standard mathematical functions."""
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #1e1e2e;
+                color: #cdd6f4;
+                border: 1px solid #313244;
+                border-radius: 6px;
+                padding: 4px;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 12px;
+            }
+            QMenu::item {
+                padding: 6px 18px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: #313244;
+                color: #89b4fa;
+            }
+        """)
+
+        categories = {
+            "📐 Trigonometric & Waves": [
+                ("Sine Wave", "sin(x)"),
+                ("Cosine Wave", "cos(x)"),
+                ("Tangent (with asymptotes)", "tan(x)"),
+                ("Sinc Function [sin(x)/x]", "sin(x) / x"),
+                ("Damped Harmonic Oscillator", "exp(-0.2*x) * cos(3*x)"),
+                ("Wave Interference / Beats", "sin(4*x) + sin(4.4*x)"),
+                ("Fourier Square Wave Approximation", "sin(x) + sin(3*x)/3 + sin(5*x)/5"),
+                ("Topologist's Sine Curve", "sin(1/x)"),
+            ],
+            "📈 Polynomials & Rational": [
+                ("Parabola", "x^2 - 4"),
+                ("Cubic Polynomial", "x^3 - 3*x"),
+                ("Double-Well Potential", "x^4 - 4*x^2 + 1"),
+                ("Rational Hyperbola", "1 / x"),
+                ("Runge's Phenomenon", "1 / (1 + 25*x^2)"),
+                ("Cube Root Curve", "cbrt(x)"),
+            ],
+            "⚡ Exponential & Logarithmic": [
+                ("Natural Exponential (eˣ)", "exp(x)"),
+                ("Natural Logarithm (ln x)", "ln(x)"),
+                ("Logistic / Sigmoid Activation", "1 / (1 + exp(-x))"),
+                ("Gaussian Normal Distribution", "exp(-x^2 / 2) / sqrt(2*pi)"),
+            ],
+            "✨ Special & Parametric Curves": [
+                ("Absolute Value V-Shape", "abs(x)"),
+                ("Bouncing Wave |sin(x)|", "abs(sin(x))"),
+                ("Semicircle (Radius 5)", "sqrt(abs(25 - x^2))"),
+                ("Dynamic Parametric Wave", "a * sin(b * x)"),
+            ],
+        }
+
+        for cat_name, funcs in categories.items():
+            sub = menu.addMenu(cat_name)
+            sub.setStyleSheet(menu.styleSheet())
+            for label, expr in funcs:
+                act = QAction(f"{label}  [{expr}]", self)
+                act.triggered.connect(lambda _, e=expr: self.add_function(e))
+                sub.addAction(act)
+
+        menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
+
