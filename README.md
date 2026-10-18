@@ -35,9 +35,11 @@ Combines the textbook symbolic math precision of the **Casio fx-991CW ClassWiz**
   - **Extrema Finder**: Computes local minima and maxima with coordinates.
   - **Definite Area Integration**: Fast trapezoidal/Simpson numerical integration under the curve.
 
-### 🎬 3. Manim Animation Studio (3Blue1Brown Scene Exporter)
-- Export your active Desmos function curves into a ready-to-run **Manim Community** animation script (`scene.py`).
-- Integrated offline video renderer: Render smooth 60 FPS mathematical animations (MP4) directly from the application!
+### 🎬 3. Manim Animation Studio (3Blue1Brown Scene Exporter & Renderer)
+- **100% Offline Video Rendering**: High-performance in-process Manim engine renders smooth mathematical animations (MP4) directly from the application without needing LaTeX or external compilers.
+- **Export Ready Scripts**: One-click **Save Scene (.py)** to export clean, customizable 3Blue1Brown-style Manim Community scripts.
+- **Direct Playback & File Access**: Instant **▶ Play Video** and **📁 Open Folder** actions launch your default desktop media player (Haruna, VLC, MPV) and file manager (Dolphin) upon render completion.
+- **Standalone App Bundling**: Completely bundled into the standalone executable and Arch Linux package.
 
 ---
 
@@ -140,6 +142,7 @@ makepkg -f
 
 # 2. Install system-wide with pacman
 sudo pacman -U calculator-app-1.0.0-1-x86_64.pkg.tar.zst
+```
 
 ---
 

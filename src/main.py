@@ -92,7 +92,7 @@ def main():
     """Application entry point."""
     app = QApplication(sys.argv)
     app.setApplicationName("CasioDesmosCalculator")
-    app.setDesktopFileName("calculator-app.desktop")
+    app.setDesktopFileName("calculator-app")
     app.setStyleSheet(MAIN_THEME)
 
     window = AdvancedCalculatorApp()
