@@ -31,6 +31,7 @@ class AdvancedCalculatorApp(QMainWindow):
         self._setup_icon()
         self._init_ui()
         self._setup_shortcuts()
+        self.casio_tab.focus_input()
 
     def _setup_icon(self):
         """Locate and set application icon."""
@@ -64,17 +65,28 @@ class AdvancedCalculatorApp(QMainWindow):
         self.desmos_tab.request_manim_export.connect(self._open_manim_studio)
         self.tabs.addTab(self.desmos_tab, "📈 Desmos (Graphing & Sliders)")
 
+        self.tabs.currentChanged.connect(self._on_tab_changed)
         layout.addWidget(self.tabs)
 
     def _setup_shortcuts(self):
         """Configure keyboard navigation shortcuts."""
         # Switch tabs via Ctrl+1, Ctrl+2
-        QShortcut(QKeySequence("Ctrl+1"), self).activated.connect(lambda: self.tabs.setCurrentIndex(0))
-        QShortcut(QKeySequence("Ctrl+2"), self).activated.connect(lambda: self.tabs.setCurrentIndex(1))
+        QShortcut(QKeySequence("Ctrl+1"), self).activated.connect(lambda: self._switch_tab(0))
+        QShortcut(QKeySequence("Ctrl+2"), self).activated.connect(lambda: self._switch_tab(1))
 
         # Fullscreen toggle F11
         f11 = QShortcut(QKeySequence("F11"), self)
         f11.activated.connect(self._toggle_fullscreen)
+
+    def _switch_tab(self, index: int):
+        self.tabs.setCurrentIndex(index)
+        self._on_tab_changed(index)
+
+    def _on_tab_changed(self, index: int):
+        if index == 0:
+            self.casio_tab.focus_input()
+        elif index == 1:
+            self.desmos_tab.focus_first_input()
 
     def _toggle_fullscreen(self):
         if self.isFullScreen():

@@ -178,17 +178,29 @@ casio-desmos-calc
 
 ---
 
-## Keyboard Shortcuts
+## Keyboard Shortcuts & Desktop Controls
 
-| Shortcut | Action |
-| :--- | :--- |
-| `Ctrl + 1` | Switch to **Casio fx-991CW Scientific** mode |
-| `Ctrl + 2` | Switch to **Desmos Graphing** mode |
-| `F11` | Toggle Fullscreen mode |
-| `Enter` / `=` | Evaluate expression in Casio mode |
-| `Esc` | All Clear (`AC`) in Casio mode |
-| `Delete` | Clear Entry (`CE`) in Casio mode |
-| `Backspace` | Delete last entered character |
+The application is engineered for complete keyboard-first operation without needing a mouse:
+
+| Key / Shortcut | Context | Action |
+| :--- | :--- | :--- |
+| **`0` – `9`, `+`, `-`, `*`, `/`, `^`, `(`, `)`** | Casio Mode | Direct mathematical typing with active blinking cursor |
+| **`Enter` / `Return` / `=`** | Casio Mode | Calculate / Evaluate expression (`[EXE]`) |
+| **`Esc`** | Casio Mode | All Clear (`[AC]`) — resets display to 0 |
+| **`Tab`** or **`Ctrl + D`** | Casio Mode | Toggle Exact $\Leftrightarrow$ Decimal representation (`[S ⇔ D]`) |
+| **`↑` (Up Arrow)** | Casio Mode | Recall previous calculation from history |
+| **`↓` (Down Arrow)** | Casio Mode | Recall next calculation from history |
+| **`F2`** | Casio Mode | Toggle Angle Mode (`[DEG]` $\rightarrow$ `[RAD]` $\rightarrow$ `[GRA]`) |
+| **`F3`** or **`Ctrl + E`** | Casio Mode | Open Polynomial & Simultaneous Equation Solver |
+| **`F4`** or **`Ctrl + P`** | Casio Mode | Open Physical Scientific Constants menu ($c, h, G, \dots$) |
+| **`Ctrl + C`** | Casio Mode | Copy result value to system clipboard |
+| **`Enter`** | Desmos Rows | Move to next expression row or create a new row |
+| **`Ctrl + N`** | Desmos Mode | Add a new function row |
+| **`Ctrl + R`** | Desmos Mode | Reset graph pan and zoom view |
+| **`Ctrl + M`** | Desmos Mode | Open 3Blue1Brown Manim Animation Studio |
+| **`Ctrl + 1`** | Universal | Switch to **Casio Scientific** mode and focus input |
+| **`Ctrl + 2`** | Universal | Switch to **Desmos Graphing** mode and focus input |
+| **`F11`** | Universal | Toggle Fullscreen mode |
 
 ---
 

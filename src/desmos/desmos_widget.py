@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QAction
+from PyQt6.QtGui import QColor, QAction, QKeySequence, QShortcut
 
 from src.desmos.graph_canvas import DesmosGraphCanvas
 from src.desmos.analysis import CurveAnalyzer
@@ -28,6 +28,7 @@ class FunctionRow(QFrame):
 
     changed = pyqtSignal(str)   # emits func_id
     deleted = pyqtSignal(str)   # emits func_id
+    enter_pressed = pyqtSignal(str)  # emits func_id on Enter/Return
 
     def __init__(self, func_id: str, default_expr: str, color_hex: str, parent=None):
         super().__init__(parent)
@@ -77,6 +78,7 @@ class FunctionRow(QFrame):
             }
         """)
         self.input_edit.textChanged.connect(lambda: self.changed.emit(self.func_id))
+        self.input_edit.returnPressed.connect(lambda: self.enter_pressed.emit(self.func_id))
         layout.addWidget(self.input_edit)
 
         # Visible checkbox
@@ -323,6 +325,33 @@ class DesmosWidget(QWidget):
 
         main_layout.addWidget(splitter)
 
+        # Desmos Keyboard Navigation Shortcuts
+        QShortcut(QKeySequence("Ctrl+N"), self).activated.connect(lambda: self.add_function(""))
+        QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self.canvas_reset)
+        QShortcut(QKeySequence("Ctrl+M"), self).activated.connect(self._trigger_manim_export)
+
+    def focus_first_input(self):
+        """Focus the first expression row input."""
+        if self.functions:
+            first_row = next(iter(self.functions.values()))
+            first_row.input_edit.setFocus()
+            first_row.input_edit.selectAll()
+
+    def _on_row_enter_pressed(self, func_id: str):
+        """When user presses Enter in a function row, focus next or create new row."""
+        row_ids = list(self.functions.keys())
+        if func_id in row_ids:
+            idx = row_ids.index(func_id)
+            if idx == len(row_ids) - 1:
+                self.add_function("")
+                if self.functions:
+                    last_row = list(self.functions.values())[-1]
+                    last_row.input_edit.setFocus()
+            else:
+                next_id = row_ids[idx + 1]
+                self.functions[next_id].input_edit.setFocus()
+                self.functions[next_id].input_edit.selectAll()
+
     def add_function(self, expr: str = ""):
         """Add new function row to the list."""
         func_id = str(uuid.uuid4())
@@ -332,6 +361,7 @@ class DesmosWidget(QWidget):
         row = FunctionRow(func_id, expr, color, self.func_container)
         row.changed.connect(self.update_single_function)
         row.deleted.connect(self.delete_function)
+        row.enter_pressed.connect(self._on_row_enter_pressed)
 
         self.functions[func_id] = row
         # Insert before stretch
